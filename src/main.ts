@@ -1,35 +1,51 @@
 // src/main.ts
 import { World, DefaultConfig } from "./xpbd";
 import { Tire } from "./tire";
-import { debugLog } from "./debug";
+
+// ---- DEBUG MODULE IMPORTS ----
+import {
+    updateFPS,
+    drawHUD,
+    drawTireDebug,
+    drawRing
+} from "./debug";
 
 const canvas = document.getElementById("game") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d")!;
 
-function resize(){ canvas.width = innerWidth; canvas.height = innerHeight; }
-resize(); addEventListener("resize", resize);
+// Resize canvas
+function resize(){
+    canvas.width = innerWidth;
+    canvas.height = innerHeight;
+}
+resize();
+addEventListener("resize", resize);
 
 let running = false;
 let world: World;
 let tire: Tire;
 
-// ============ INPUT =============
+// Static cube
+const cube = { w:64, h:64, x:0, y:0 };
+
+// INPUT
 const keys = { left:false, right:false, up:false };
-let showTireDebug = true; // DEBUG VISUALIZATION ON BY DEFAULT
+let showTireDebug = true;
 
 addEventListener("keydown", e=>{
     if (e.code === "ArrowLeft") keys.left = true;
     if (e.code === "ArrowRight") keys.right = true;
-    if (e.code === "ArrowUp" || e.code==="Space") keys.up = true;
+    if (e.code === "ArrowUp" || e.code === "Space") keys.up = true;
+
     if (e.key === "t") showTireDebug = !showTireDebug;
 });
 addEventListener("keyup", e=>{
     if (e.code === "ArrowLeft") keys.left = false;
     if (e.code === "ArrowRight") keys.right = false;
-    if (e.code === "ArrowUp" || e.code==="Space") keys.up = false;
+    if (e.code === "ArrowUp" || e.code === "Space") keys.up = false;
 });
 
-// ============ SLIDERS ============
+// SLIDERS
 const gravS  = document.getElementById("grav")  as HTMLInputElement;
 const tireS  = document.getElementById("tireS") as HTMLInputElement;
 const rimS   = document.getElementById("rimS")  as HTMLInputElement;
@@ -46,12 +62,31 @@ function updateSliderLabels(){
     (document.getElementById("iterVal") as HTMLElement).textContent  = iterS.value;
 }
 updateSliderLabels();
-
-for (const el of [gravS,tireS,rimS,spokeS,massS,iterS]) {
+for (const el of [gravS,tireS,rimS,spokeS,massS,iterS])
     el.oninput = () => updateSliderLabels();
+
+const GY = 380;
+
+// Ground test
+function tireIsGrounded(tire: Tire) {
+    const groundPad = 12;
+    const topOfGround = GY - groundPad;
+    const R = 10;
+
+    for (const p of tire.outer) {
+        if (p.y >= topOfGround - 0.1) return true;
+
+        const left = cube.x;
+        const right = cube.x + cube.w;
+        const top = cube.y;
+
+        if (p.x >= left && p.x <= right && p.y >= top - R && p.y <= top + 2)
+            return true;
+    }
+    return false;
 }
 
-// ============ NEW SIM ============
+// Start world
 function initSim(){
     world = new World({
         dt: 1/60,
@@ -69,9 +104,11 @@ function initSim(){
     );
 
     tire.setMassScale(Number(massS.value)/100);
+
+    cube.x = innerWidth * 0.75;
+    cube.y = GY - cube.h;
 }
 
-// ============ START/STOP ============
 const startBtn = document.getElementById("startBtn") as HTMLButtonElement;
 
 startBtn.onclick = () => {
@@ -79,119 +116,68 @@ startBtn.onclick = () => {
         initSim();
         running = true;
         startBtn.textContent = "Stop Physics";
-        debugLog.log("Simulation started");
-    }
-    else {
+    } else {
         running = false;
         startBtn.textContent = "Start Physics";
-        debugLog.log("Simulation stopped");
     }
 };
 
-// ============ JUMP =============
 function doJump(){
     if (!running) return;
-
-    let grounded = false;
-    for (const p of tire.outer){
-        if (p.y > GY - 14) grounded = true;
-    }
-    if (!grounded) return;
-
-    tire.applyImpulse(0, -18);
+    if (!tireIsGrounded(tire)) return;
+    tire.applyImpulse(0, -120);
 }
 
-// ============ DRAW TIRE DEBUG ============
-function drawTireDebug(t: Tire){
-    if (!showTireDebug) return;
+// Cube collision
+function collideTireWithCube(tire: Tire) {
+    const x1 = cube.x, y1 = cube.y;
+    const x2 = x1 + cube.w, y2 = y1 + cube.h;
+    const R = 10;
 
-    const hub = t.hub;
+    for (const p of [...tire.outer, ...tire.inner]) {
 
-    // ---- inner ring ----
-    ctx.strokeStyle = "#0ff";
-    ctx.beginPath();
-    const inner = t.inner;
-    ctx.moveTo(inner[0].x, inner[0].y);
-    for (let i=1; i<inner.length; i++)
-        ctx.lineTo(inner[i].x, inner[i].y);
-    ctx.closePath();
-    ctx.stroke();
+        if (p.x < x1 - R || p.x > x2 + R || p.y < y1 - R || p.y > y2 + R)
+            continue;
 
-    // ---- spokes ----
-    ctx.strokeStyle = "#ff0";
-    for (let i=0; i<t.outer.length; i++){
-        const a = t.outer[i];
-        const b = t.inner[i];
-        ctx.beginPath();
-        ctx.moveTo(a.x, a.y);
-        ctx.lineTo(b.x, b.y);
-        ctx.stroke();
-    }
+        const dl = p.x - x1;
+        const dr = x2 - p.x;
+        const dt = p.y - y1;
+        const db = y2 - p.y;
 
-    /*
-    // ---- hub ----
-    ctx.fillStyle = "#f33";
-    ctx.beginPath();
-    ctx.arc(hub.x, hub.y, 4, 0, Math.PI*2);
-    ctx.fill();
+        const min = Math.min(dl, dr, dt, db);
 
-    // ---- radial lines ----
-    ctx.strokeStyle = "#f0f";
-    for (const p of t.outer){
-      ctx.beginPath();
-      ctx.moveTo(hub.x, hub.y);
-      ctx.lineTo(p.x, p.y);
-      ctx.stroke();
-    }
-    */
-
-    // ---- velocity vectors ----
-    ctx.strokeStyle = "orange";
-    for (const p of [...t.outer, ...t.inner]){
-        ctx.beginPath();
-        ctx.moveTo(p.x, p.y);
-        ctx.lineTo(p.x + p.vx * 0.15, p.y + p.vy * 0.15);
-        ctx.stroke();
-    }
-
-    // ---- text ----
-    let grounded = false;
-    for (const p of t.outer)
-        if (p.y > GY - 14) grounded = true;
-
-    ctx.fillStyle = "#0f0";
-    ctx.font = "12px monospace";
-    ctx.fillText(`vx=${hub.vx.toFixed(2)} vy=${hub.vy.toFixed(2)}`, 12, 20);
-    ctx.fillText(`grounded: ${grounded}`, 12, 36);
-
-    if (t.pressure){
-        const A = t.pressure.area().toFixed(2);
-        const dA = (Number(A) - t.pressure.restArea).toFixed(2);
-        ctx.fillText(`area: ${A}`, 12, 52);
-        ctx.fillText(`Δarea: ${dA}`, 12, 68);
+        if (min === dt) {
+            const lim = y1 - R;
+            if (p.y > lim){ const pen = p.y - lim; p.y -= pen; if (p.vy > 0) p.vy = 0; }
+        }
+        else if (min === db) {
+            const lim = y2 + R;
+            if (p.y < lim){ const pen = lim - p.y; p.y += pen; if (p.vy < 0) p.vy = 0; }
+        }
+        else if (min === dl) {
+            const lim = x1 - R;
+            if (p.x > lim){ const pen = p.x - lim; p.x -= pen; if (p.vx > 0) p.vx = 0; }
+        }
+        else {
+            const lim = x2 + R;
+            if (p.x < lim){ const pen = lim - p.x; p.x += pen; if (p.vx < 0) p.vx = 0; }
+        }
     }
 }
 
-// ============ DRAW OUTER RING =============
-function drawRing(ring){
-    ctx.beginPath();
-    ctx.moveTo(ring[0].x, ring[0].y);
-    for (let i=1;i<ring.length;i++) ctx.lineTo(ring[i].x, ring[i].y);
-    ctx.closePath();
-    ctx.strokeStyle="#eee";
-    ctx.fillStyle="#222";
-    ctx.fill();
-    ctx.stroke();
-}
+// MAIN LOOP
+function loop(t=0){
+    updateFPS(t);
 
-// ============ MAIN LOOP ============
-const GY = 380;
-
-function loop(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
 
     ctx.fillStyle = "#444";
-    ctx.fillRect(0,GY,canvas.width,6);
+    ctx.fillRect(0, GY, canvas.width, 6);
+
+    ctx.fillStyle="#888";
+    ctx.fillRect(cube.x, cube.y, cube.w, cube.h);
+    ctx.strokeStyle="#fff";
+    ctx.strokeRect(cube.x, cube.y, cube.w, cube.h);
 
     if (running){
         if (keys.left)  tire.steer(-40);
@@ -200,15 +186,17 @@ function loop(){
 
         tire.inflate();
         tire.collideGround(GY);
+        collideTireWithCube(tire);
+
         world.step();
     }
 
-    if (running && tire){
-        drawRing(tire.outer);
-        drawTireDebug(tire);
+    if (running){
+        drawRing(ctx, tire.outer);
+        if (showTireDebug) drawTireDebug(ctx, tire);
+        drawHUD(ctx, world, tire);
     }
 
-    debugLog.renderOverlay(ctx);
     requestAnimationFrame(loop);
 }
 loop();

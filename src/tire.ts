@@ -43,7 +43,6 @@ export class Tire {
     build() {
         const N = this.outer.length;
 
-        // outer ring
         for (let i = 0; i < N; i++) {
             const c = new DistCons(
                 this.outer[i], this.outer[(i + 1) % N],
@@ -54,7 +53,6 @@ export class Tire {
             this.world.addConstraint(c);
         }
 
-        // inner ring
         for (let i = 0; i < N; i++) {
             const c = new DistCons(
                 this.inner[i], this.inner[(i + 1) % N],
@@ -65,7 +63,6 @@ export class Tire {
             this.world.addConstraint(c);
         }
 
-        // spokes
         for (let i = 0; i < N; i++) {
             const c = new DistCons(
                 this.inner[i], this.outer[i],
@@ -76,7 +73,6 @@ export class Tire {
             this.world.addConstraint(c);
         }
 
-        // tire pressure
         this.pressure = new PressureCons(this.outer, 0.00045);
         this.world.addConstraint(this.pressure);
     }
@@ -106,8 +102,7 @@ export class Tire {
             let ry = p.y - hy;
             const L = Math.hypot(rx, ry) || 1;
 
-            rx /= L;
-            ry /= L;
+            rx /= L; ry /= L;
 
             const tx = -ry;
             const ty = rx;
@@ -123,10 +118,9 @@ export class Tire {
         for (const p of this.outer) {
             let rx = p.x - hx;
             let ry = p.y - hy;
-
-            const L = Math.hypot(rx, ry) || 0.0001;
-            const nx = rx / L;
-            const ny = ry / L;
+            const L = Math.hypot(rx, ry) || .0001;
+            const nx = rx/L;
+            const ny = ry/L;
 
             p.vx += nx * this.airPressure;
             p.vy += ny * this.airPressure;
