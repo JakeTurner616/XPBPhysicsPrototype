@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>XPBD Tire Physics</title>
+
+<style>
+  body {
+    margin:0;
+    padding:0;
+    overflow:hidden;
+    background:#111;
+    color:white;
+    font-family:monospace;
+  }
+  canvas {
+    position: fixed;
+    top:0;
+    left:0;
+    z-index:1;
+    display:block;
+    image-rendering:pixelated;
+  }
+  #controls {
+    position:fixed;
+    top:10px;
+    left:10px;
+    z-index:9999;
+    background:#000c;
+    padding:12px;
+    border:1px solid #333;
+    border-radius:6px;
+    font-size:13px;
+    min-width:200px;
+  }
+  label { display:block; margin:8px 0 3px; }
+  .val { float:right; color:#6cf; }
+
+  #startBtn {
+    margin-top:12px;
+    padding:6px 10px;
+    width:100%;
+    background:#28a;
+    border:none;
+    color:white;
+    cursor:pointer;
+    font-weight:bold;
+    border-radius:4px;
+  }
+  #startBtn:hover { background:#2ac; }
+</style>
+</head>
+
+<body>
+
+<canvas id="game"></canvas>
+
+<div id="controls">
+  <label>Gravity <span id="gravVal" class="val"></span>
+    <input id="grav" type="range" min="0" max="2000" value="800">
+  </label>
+
+  <label>Tire Stiff <span id="tireVal" class="val"></span>
+    <input id="tireS" type="range" min="1" max="100" value="55">
+  </label>
+
+  <label>Rim Stiff <span id="rimVal" class="val"></span>
+    <input id="rimS" type="range" min="1" max="100" value="80">
+  </label>
+
+  <label>Spoke Stiff <span id="spokeVal" class="val"></span>
+    <input id="spokeS" type="range" min="1" max="100" value="35">
+  </label>
+
+  <label>Tire Weight <span id="massVal" class="val"></span>
+    <input id="massS" type="range" min="10" max="200" value="60">
+  </label>
+
+  <label>Iterations <span id="iterVal" class="val"></span>
+    <input id="iters" type="range" min="5" max="60" value="22">
+  </label>
+
+  <button id="startBtn">Start Physics</button>
+</div>
+
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>
