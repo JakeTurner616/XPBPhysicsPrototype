@@ -1,57 +1,116 @@
+// src/main.ts
 import { World, DefaultConfig } from "./xpbd";
 import { Tire } from "./tire";
 import { debugLog } from "./debug";
 
-const canvas=document.getElementById("game") as HTMLCanvasElement;
-const ctx=canvas.getContext("2d")!;
+const canvas = document.getElementById("game") as HTMLCanvasElement;
+const ctx = canvas.getContext("2d")!;
 
-function resize(){ canvas.width=innerWidth; canvas.height=innerHeight; }
-resize(); addEventListener("resize",resize);
+function resize(){ canvas.width = innerWidth; canvas.height = innerHeight; }
+resize(); addEventListener("resize", resize);
 
-// toggle debug overlay
-addEventListener("keydown",e=>{
-    if(e.key==="d") debugLog.overlayEnabled = !debugLog.overlayEnabled;
+let running = false;
+let world: World;
+let tire: Tire;
+
+const keys = { left:false, right:false, up:false };
+
+addEventListener("keydown", e=>{
+    if (e.code === "ArrowLeft") keys.left = true;
+    if (e.code === "ArrowRight") keys.right = true;
+    if (e.code === "ArrowUp" || e.code==="Space") keys.up = true;
+});
+addEventListener("keyup", e=>{
+    if (e.code === "ArrowLeft") keys.left = false;
+    if (e.code === "ArrowRight") keys.right = false;
+    if (e.code === "ArrowUp" || e.code==="Space") keys.up = false;
 });
 
-// export log
-addEventListener("keydown",e=>{
-    if(e.key==="p"){
-        const blob=new Blob([debugLog.export()],{type:"text/plain"});
-        const a=document.createElement("a");
-        a.href=URL.createObjectURL(blob);
-        a.download="debug_log.txt";
-        a.click();
+const gravS  = document.getElementById("grav")  as HTMLInputElement;
+const tireS  = document.getElementById("tireS") as HTMLInputElement;
+const rimS   = document.getElementById("rimS")  as HTMLInputElement;
+const spokeS = document.getElementById("spokeS")as HTMLInputElement;
+const massS  = document.getElementById("massS") as HTMLInputElement;
+const iterS  = document.getElementById("iters") as HTMLInputElement;
+
+function updateSliderLabels(){
+    (document.getElementById("gravVal") as HTMLElement).textContent  = gravS.value;
+    (document.getElementById("tireVal") as HTMLElement).textContent  = tireS.value;
+    (document.getElementById("rimVal")  as HTMLElement).textContent  = rimS.value;
+    (document.getElementById("spokeVal")as HTMLElement).textContent  = spokeS.value;
+    (document.getElementById("massVal") as HTMLElement).textContent  = massS.value;
+    (document.getElementById("iterVal") as HTMLElement).textContent  = iterS.value;
+}
+updateSliderLabels();
+
+for (const el of [gravS,tireS,rimS,spokeS,massS,iterS]) {
+    el.oninput = () => updateSliderLabels();
+}
+
+// ----------------------
+// CREATE a NEW sim state
+// ----------------------
+function initSim(){
+    world = new World({
+        dt: 1/60,
+        gravity: Number(gravS.value),
+        iterations: Number(iterS.value),
+        damping: DefaultConfig.damping
+    });
+
+    tire = new Tire(world, innerWidth/2, 260);
+
+    tire.setStiffness(
+        Number(tireS.value)/100,
+        Number(rimS.value)/100,
+        Number(spokeS.value)/100
+    );
+
+    tire.setMassScale(Number(massS.value)/100);
+}
+
+// ----------------------
+// START / STOP BUTTON
+// ----------------------
+const startBtn = document.getElementById("startBtn") as HTMLButtonElement;
+
+startBtn.onclick = () => {
+    if (!running){
+        initSim();
+        running = true;
+        startBtn.textContent = "Stop Physics";
+        debugLog.log("Simulation started");
     }
-});
+    else {
+        running = false;
+        startBtn.textContent = "Start Physics";
+        debugLog.log("Simulation stopped");
+    }
+};
 
-const world = new World(DefaultConfig);
-debugLog.log("World initialized");
+// ----------------------
+// LITTLE JUMP
+// ----------------------
+function doJump(){
+    if (!running) return;
 
-const tire=new Tire(world, innerWidth/2, 260);
-debugLog.log("Tire initialized");
+    // grounded check
+    let grounded = false;
+    for (const p of tire.outer){
+        if (p.y > 380 - 14) grounded = true;
+    }
+    if (!grounded) return;
 
-const keys={left:false,right:false,up:false,down:false};
+    tire.applyImpulse(0, -18);
+}
 
-addEventListener("keydown",e=>{
-    if(e.code==="ArrowLeft") keys.left=true;
-    if(e.code==="ArrowRight") keys.right=true;
-    if(e.code==="ArrowUp") keys.up=true;
-    if(e.code==="ArrowDown") keys.down=true;
-});
-
-addEventListener("keyup",e=>{
-    if(e.code==="ArrowLeft") keys.left=false;
-    if(e.code==="ArrowRight") keys.right=false;
-    if(e.code==="ArrowUp") keys.up=false;
-    if(e.code==="ArrowDown") keys.down=false;
-});
-
-const GY = 380;
-
+// ----------------------
+// DRAW RING
+// ----------------------
 function drawRing(ring){
     ctx.beginPath();
-    ctx.moveTo(ring[0].x,ring[0].y);
-    for(let i=1;i<ring.length;i++) ctx.lineTo(ring[i].x,ring[i].y);
+    ctx.moveTo(ring[0].x, ring[0].y);
+    for (let i=1;i<ring.length;i++) ctx.lineTo(ring[i].x, ring[i].y);
     ctx.closePath();
     ctx.strokeStyle="#eee";
     ctx.fillStyle="#222";
@@ -59,32 +118,31 @@ function drawRing(ring){
     ctx.stroke();
 }
 
+// ----------------------
+// MAIN LOOP
+// ----------------------
+const GY = 380;
+
 function loop(){
-    const hub=tire.hub;
-
-    debugLog.log(
-        `F=${world.tick} Hub=(${hub.x.toFixed(1)},${hub.y.toFixed(1)}) `
-        + `V=(${hub.vx.toFixed(2)},${hub.vy.toFixed(2)})`
-    );
-
-    if (keys.right) tire.applyTorque(0.8);
-    if (keys.left)  tire.applyTorque(-0.8);
-    if (keys.up)    tire.applyImpulse(0,-1.0);
-    if (keys.down)  tire.applyImpulse(0,+1.0);
-
-    tire.collideGround(GY);
-
-    world.step();
-
-    // Render
     ctx.clearRect(0,0,canvas.width,canvas.height);
-    ctx.fillStyle="#444";
+
+    // ground
+    ctx.fillStyle = "#444";
     ctx.fillRect(0,GY,canvas.width,6);
 
-    drawRing(tire.outer);
+    if (running){
+        if (keys.left)  tire.steer(-40);
+        if (keys.right) tire.steer(+40);
+        if (keys.up)    doJump();
+
+        tire.inflate();
+        tire.collideGround(GY);
+        world.step();
+    }
+
+    if (running && tire) drawRing(tire.outer);
 
     debugLog.renderOverlay(ctx);
-
     requestAnimationFrame(loop);
 }
 loop();
