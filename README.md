@@ -22,10 +22,10 @@ If you use or modify this work in an academic or research context, please cite b
 implementation and the original XPBD paper.
 
 @misc{turner2025xpbdtire,
-  author       = {Turner, Jake},
-  title        = {XPBD Tire Physics Playground},
+  author       = {Turner, Jakob},
+  title        = {XPBPhysicsPrototype},
   year         = {2025},
-  howpublished = {\url{https://github.com/YOUR_USERNAME/YOUR_REPO}},
+  howpublished = {\url{https://github.com/JakeTurner616/XPBPhysicsPrototype}},
   note         = {Real-time deformable tire simulation based on XPBD}
 }
 
