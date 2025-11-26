@@ -13,12 +13,15 @@ let running = false;
 let world: World;
 let tire: Tire;
 
+// ============ INPUT =============
 const keys = { left:false, right:false, up:false };
+let showTireDebug = true; // DEBUG VISUALIZATION ON BY DEFAULT
 
 addEventListener("keydown", e=>{
     if (e.code === "ArrowLeft") keys.left = true;
     if (e.code === "ArrowRight") keys.right = true;
     if (e.code === "ArrowUp" || e.code==="Space") keys.up = true;
+    if (e.key === "t") showTireDebug = !showTireDebug;
 });
 addEventListener("keyup", e=>{
     if (e.code === "ArrowLeft") keys.left = false;
@@ -26,6 +29,7 @@ addEventListener("keyup", e=>{
     if (e.code === "ArrowUp" || e.code==="Space") keys.up = false;
 });
 
+// ============ SLIDERS ============
 const gravS  = document.getElementById("grav")  as HTMLInputElement;
 const tireS  = document.getElementById("tireS") as HTMLInputElement;
 const rimS   = document.getElementById("rimS")  as HTMLInputElement;
@@ -47,9 +51,7 @@ for (const el of [gravS,tireS,rimS,spokeS,massS,iterS]) {
     el.oninput = () => updateSliderLabels();
 }
 
-// ----------------------
-// CREATE a NEW sim state
-// ----------------------
+// ============ NEW SIM ============
 function initSim(){
     world = new World({
         dt: 1/60,
@@ -69,9 +71,7 @@ function initSim(){
     tire.setMassScale(Number(massS.value)/100);
 }
 
-// ----------------------
-// START / STOP BUTTON
-// ----------------------
+// ============ START/STOP ============
 const startBtn = document.getElementById("startBtn") as HTMLButtonElement;
 
 startBtn.onclick = () => {
@@ -88,25 +88,91 @@ startBtn.onclick = () => {
     }
 };
 
-// ----------------------
-// LITTLE JUMP
-// ----------------------
+// ============ JUMP =============
 function doJump(){
     if (!running) return;
 
-    // grounded check
     let grounded = false;
     for (const p of tire.outer){
-        if (p.y > 380 - 14) grounded = true;
+        if (p.y > GY - 14) grounded = true;
     }
     if (!grounded) return;
 
     tire.applyImpulse(0, -18);
 }
 
-// ----------------------
-// DRAW RING
-// ----------------------
+// ============ DRAW TIRE DEBUG ============
+function drawTireDebug(t: Tire){
+    if (!showTireDebug) return;
+
+    const hub = t.hub;
+
+    // ---- inner ring ----
+    ctx.strokeStyle = "#0ff";
+    ctx.beginPath();
+    const inner = t.inner;
+    ctx.moveTo(inner[0].x, inner[0].y);
+    for (let i=1; i<inner.length; i++)
+        ctx.lineTo(inner[i].x, inner[i].y);
+    ctx.closePath();
+    ctx.stroke();
+
+    // ---- spokes ----
+    ctx.strokeStyle = "#ff0";
+    for (let i=0; i<t.outer.length; i++){
+        const a = t.outer[i];
+        const b = t.inner[i];
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+    }
+
+    /*
+    // ---- hub ----
+    ctx.fillStyle = "#f33";
+    ctx.beginPath();
+    ctx.arc(hub.x, hub.y, 4, 0, Math.PI*2);
+    ctx.fill();
+
+    // ---- radial lines ----
+    ctx.strokeStyle = "#f0f";
+    for (const p of t.outer){
+      ctx.beginPath();
+      ctx.moveTo(hub.x, hub.y);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+    }
+    */
+
+    // ---- velocity vectors ----
+    ctx.strokeStyle = "orange";
+    for (const p of [...t.outer, ...t.inner]){
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(p.x + p.vx * 0.15, p.y + p.vy * 0.15);
+        ctx.stroke();
+    }
+
+    // ---- text ----
+    let grounded = false;
+    for (const p of t.outer)
+        if (p.y > GY - 14) grounded = true;
+
+    ctx.fillStyle = "#0f0";
+    ctx.font = "12px monospace";
+    ctx.fillText(`vx=${hub.vx.toFixed(2)} vy=${hub.vy.toFixed(2)}`, 12, 20);
+    ctx.fillText(`grounded: ${grounded}`, 12, 36);
+
+    if (t.pressure){
+        const A = t.pressure.area().toFixed(2);
+        const dA = (Number(A) - t.pressure.restArea).toFixed(2);
+        ctx.fillText(`area: ${A}`, 12, 52);
+        ctx.fillText(`Δarea: ${dA}`, 12, 68);
+    }
+}
+
+// ============ DRAW OUTER RING =============
 function drawRing(ring){
     ctx.beginPath();
     ctx.moveTo(ring[0].x, ring[0].y);
@@ -118,15 +184,12 @@ function drawRing(ring){
     ctx.stroke();
 }
 
-// ----------------------
-// MAIN LOOP
-// ----------------------
+// ============ MAIN LOOP ============
 const GY = 380;
 
 function loop(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
 
-    // ground
     ctx.fillStyle = "#444";
     ctx.fillRect(0,GY,canvas.width,6);
 
@@ -140,7 +203,10 @@ function loop(){
         world.step();
     }
 
-    if (running && tire) drawRing(tire.outer);
+    if (running && tire){
+        drawRing(tire.outer);
+        drawTireDebug(tire);
+    }
 
     debugLog.renderOverlay(ctx);
     requestAnimationFrame(loop);
