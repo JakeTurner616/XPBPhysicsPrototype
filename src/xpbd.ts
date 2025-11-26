@@ -20,7 +20,7 @@ export class Body {
     vx=0; vy=0;
     invMass=1;
 
-    constructor(x:number,y:number,m:number){
+    constructor(x:number, y:number, m:number){
         this.x=this.ox=x;
         this.y=this.oy=y;
         this.invMass = m > 0 ? 1/m : 0;
@@ -35,12 +35,17 @@ export interface Constraint { solve(): void; }
 // Distance Constraint
 // --------------------------------------------
 export class DistCons implements Constraint {
-    constructor(
-        public a: Body,
-        public b: Body,
-        public rest: number,
-        public stiff: number
-    ) {}
+    a: Body;
+    b: Body;
+    rest: number;
+    stiff: number;
+
+    constructor(a: Body, b: Body, rest: number, stiff: number){
+        this.a = a;
+        this.b = b;
+        this.rest = rest;
+        this.stiff = stiff;
+    }
 
     solve() {
         let dx = this.b.x - this.a.x;
@@ -74,13 +79,16 @@ export class DistCons implements Constraint {
 // Pressure Constraint
 // --------------------------------------------
 export class PressureCons implements Constraint {
+    pts: Body[];
+    strength: number;
+
     restArea = 0;
     ready = false;
 
-    constructor(
-        public pts: Body[],
-        public strength: number
-    ) {}
+    constructor(pts: Body[], strength: number){
+        this.pts = pts;
+        this.strength = strength;
+    }
 
     area() {
         let pts=this.pts, sum=0;
@@ -128,11 +136,14 @@ export class PressureCons implements Constraint {
 // World
 // --------------------------------------------
 export class World {
+    cfg: Config;
     bodies: Body[] = [];
     cons: Constraint[] = [];
     tick = 0;
 
-    constructor(public cfg = DefaultConfig){}
+    constructor(cfg: Config = DefaultConfig){
+        this.cfg = cfg;
+    }
 
     addBody(b:Body){ this.bodies.push(b); return b; }
     addConstraint(c:Constraint){ this.cons.push(c); return c; }
@@ -178,12 +189,19 @@ export class World {
 // PERFECT NON-JITTER AABB CONTACT
 // --------------------------------------------
 export class AABBContact implements Constraint {
+    p: Body;
+    box: {x:number,y:number,w:number,h:number};
+    radius: number;
 
     constructor(
-        public p: Body,
-        public box: {x:number,y:number,w:number,h:number},
-        public radius: number
-    ) {}
+        p: Body,
+        box: {x:number,y:number,w:number,h:number},
+        radius: number
+    ){
+        this.p = p;
+        this.box = box;
+        this.radius = radius;
+    }
 
     solve() {
         const p = this.p;
@@ -197,7 +215,6 @@ export class AABBContact implements Constraint {
         const px = p.x;
         const py = p.y;
 
-        // Expanded AABB early-out
         if (px < x1 - this.radius ||
             px > x2 + this.radius ||
             py < y1 - this.radius ||
@@ -205,7 +222,6 @@ export class AABBContact implements Constraint {
             return;
         }
 
-        // Distances
         const dl = px - x1;
         const dr = x2 - px;
         const dt = py - y1;
@@ -217,20 +233,16 @@ export class AABBContact implements Constraint {
         const min = Math.min(dl, dr, dt, db);
 
         if (min === dl){
-            nx = -1; ny = 0;
-            pen = this.radius - dl;
+            nx = -1; ny = 0; pen = this.radius - dl;
         }
         else if (min === dr){
-            nx = 1; ny = 0;
-            pen = this.radius - dr;
+            nx = 1; ny = 0; pen = this.radius - dr;
         }
         else if (min === dt){
-            nx = 0; ny = -1;
-            pen = this.radius - dt;
+            nx = 0; ny = -1; pen = this.radius - dt;
         }
         else {
-            nx = 0; ny = 1;
-            pen = this.radius - db;
+            nx = 0; ny = 1; pen = this.radius - db;
         }
 
         if (pen > 0){

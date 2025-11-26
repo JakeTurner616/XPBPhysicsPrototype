@@ -5,7 +5,7 @@ export class Tire {
     outer: Body[] = [];
     inner: Body[] = [];
     hub: Body;
-    pressure: PressureCons;
+    pressure!: PressureCons;   // <-- definite assignment
 
     airPressure = 0.002;
     steerStrength = 0.07;
@@ -14,14 +14,11 @@ export class Tire {
     innerCons: DistCons[] = [];
     spokeCons: DistCons[] = [];
 
-    constructor(
-        public world: World,
-        cx: number,
-        cy: number,
-        count = 28,
-        rO = 50,
-        rI = 28
-    ){
+    world: World;
+
+    constructor(world: World, cx: number, cy: number, count = 28, rO = 50, rI = 28){
+        this.world = world;
+
         this.hub = world.addBody(new Body(cx, cy, 5));
 
         for (let i = 0; i < count; i++) {
