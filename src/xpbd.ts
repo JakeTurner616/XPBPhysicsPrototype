@@ -1,4 +1,4 @@
-// xpbd.ts — corrected for erasableSyntaxOnly
+// xpbd.ts
 
 export interface Config {
     dt:number;
@@ -169,15 +169,33 @@ export class World {
 
     integrate(){
         const {dt,gravity,damping}=this.cfg;
+
+        // max movement per-frame ≈ tire segment length (~11px)
+        const maxMove = 12;
+        const maxVel = maxMove / dt;
+
         for (const b of this.bodies){
-            b.ox=b.x; b.oy=b.y;
+            b.ox=b.x;
+            b.oy=b.y;
 
             if (b.invMass){
+                // gravity + damping
                 b.vy += gravity*dt;
                 b.vx *= damping;
                 b.vy *= damping;
-                b.x  += b.vx*dt;
-                b.y  += b.vy*dt;
+
+                // -------------- ANTI-TUNNELING VELOCITY CLAMP --------------
+                const v = Math.hypot(b.vx, b.vy);
+                if (v > maxVel){
+                    const s = maxVel / v;
+                    b.vx *= s;
+                    b.vy *= s;
+                }
+                // -----------------------------------------------------------
+
+                // integrate
+                b.x += b.vx*dt;
+                b.y += b.vy*dt;
             }
         }
     }

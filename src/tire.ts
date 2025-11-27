@@ -1,4 +1,4 @@
-// src/tire.ts — corrected for erasableSyntaxOnly
+// src/tire.ts
 
 import { World, Body, DistCons, PressureCons } from "./xpbd";
 

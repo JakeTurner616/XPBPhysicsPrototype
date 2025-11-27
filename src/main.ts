@@ -1,5 +1,4 @@
-// main.ts — zero-radius, precise collision version
-
+// main.ts
 import {
     World,
     DefaultConfig,
@@ -172,13 +171,13 @@ function collideCube(t:Tire){
 }
 
 // ===========================================================
-// SOFT–SOFT CONTACTS — NEAR ZERO GAP (r = 3.2 works)
+// SOFT–SOFT CONTACTS (r = 4-7 works but can create a weird margin)
 // zero radius between particles would collapse the tire
 // ===========================================================
 function buildSoftContacts(){
     const all = [player, ...tires];
-    const radius = 3.2;
-    const stiff = 0.8;
+    const radius = 5;
+    const stiff = 0.2; // how much force to resist via interpenetration, high values can cause jitter
 
     for (let i=0;i<all.length;i++){
         const A = all[i];
@@ -273,6 +272,18 @@ if (running) {
         buildSoftContacts();
 
         world.step();
+        {
+    const MAX_VX = 250; // <-- tuneable to cap the max vx
+
+    for (const p of player.outer) {
+        if (p.vx >  MAX_VX) p.vx =  MAX_VX;
+        if (p.vx < -MAX_VX) p.vx = -MAX_VX;
+    }
+    for (const p of player.inner) {
+        if (p.vx >  MAX_VX) p.vx =  MAX_VX;
+        if (p.vx < -MAX_VX) p.vx = -MAX_VX;
+    }
+}
     }
 
     if (running){
