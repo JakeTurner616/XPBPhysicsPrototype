@@ -1,14 +1,6 @@
 // src/debug.ts
 import { Tire } from "./tire";
 
-export interface DebugContext {
-    ctx: CanvasRenderingContext2D;
-    world: { tick: number };
-    GY: number;
-    cube: { x:number, y:number, w:number, h:number };
-    showTireDebug: boolean;
-}
-
 // -------------------------------------
 // FPS Calculation
 // -------------------------------------
@@ -90,4 +82,22 @@ export function drawTireDebug(ctx: CanvasRenderingContext2D, tire: Tire) {
         ctx.lineTo(p.x + p.vx * 0.15, p.y + p.vy * 0.15);
         ctx.stroke();
     }
+}
+
+// -------------------------------------
+// Collision Ring Outline
+// -------------------------------------
+export function drawCollisionDebug(
+    ctx: CanvasRenderingContext2D,
+    tire: Tire
+){
+    ctx.strokeStyle = "rgba(255,0,0,0.5)";
+    ctx.beginPath();
+    for (let i=0; i<tire.outer.length; i++) {
+        const a = tire.outer[i];
+        const b = tire.outer[(i+1)%tire.outer.length];
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+    }
+    ctx.stroke();
 }
