@@ -269,7 +269,7 @@ if (running) {
             collideCube(t);
         }
 
-        world.clearFrameContacts();
+       
         buildSoftContacts();
 
         world.step();
